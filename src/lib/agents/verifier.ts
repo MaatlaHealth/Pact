@@ -18,6 +18,7 @@ import type { CheckContext, CheckResult, DeliverableFile } from "@/lib/verificat
 import { enqueue } from "@/lib/jobs/queue";
 import { notifyWorkspace } from "@/lib/notifications";
 import { capturePayment } from "@/lib/payments/service";
+import { paypalConfigured } from "@/lib/paypal";
 
 /**
  * Verifier Agent. Tools execute every approved criterion; the model reads the
@@ -269,10 +270,16 @@ export async function runVerifierAgent(verificationRunId: string): Promise<void>
   } else if (status === "PASSED") {
     void workerLabel;
     await notifyWorkspace(contract.organizationId, { kind: "verification_outcome", subject: `Verification passed for "${contract.title}"`, heading: "All objective criteria met", paragraphs: [`Attempt ${run.attempt} passed every required check.`, "The policy engine will now decide whether capture can proceed or needs your approval."], contractId: contract.id });
-    try {
-      await capturePayment(contract.id, { type: "SYSTEM", label: "Post-verification settlement" });
-    } catch (error) {
-      logger.warn("Capture after verification did not complete", { contractId: contract.id, error: String(error) });
+    if (paypalConfigured()) {
+      try {
+        await capturePayment(contract.id, { type: "SYSTEM", label: "Post-verification settlement" });
+      } catch (error) {
+        logger.warn("Capture after verification did not complete", { contractId: contract.id, error: String(error) });
+      }
+    } else {
+      // Record the engine's decision anyway so the contract page explains why settlement cannot proceed.
+      await db.$transaction((tx) => decide(tx, contract.id, "CAPTURE_PAYMENT", { actorLabel: "Post-verification settlement" }));
+      logger.warn("PayPal is not configured; capture decision recorded without a capture attempt", { contractId: contract.id });
     }
   } else {
     await notifyWorkspace(contract.organizationId, { kind: "approval_request", subject: `Human review needed for "${contract.title}"`, heading: "A verification decision needs you", paragraphs: [report.summary], contractId: contract.id });
