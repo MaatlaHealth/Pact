@@ -19,7 +19,7 @@ export function LiveActivity({ initial }: { initial: ActivityItem[] }) {
       last.current = event.id;
       setEvents((prev) => (prev.some((x) => x.id === event.id) ? prev : [...prev, event].slice(-500)));
     });
-    source.onerror = () => setConnected(false);
+    source.onerror = () => setConnected(false); // EventSource reconnects on its own and resumes from Last-Event-ID
     return () => source.close();
   }, []);
 

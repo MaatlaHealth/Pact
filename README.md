@@ -243,7 +243,12 @@ Integration tests need `TEST_DATABASE_URL` (the embedded server creates `pact_te
 
 ## Deployment
 
-A [Dockerfile](Dockerfile) builds a single image that runs either the web server or the worker. [render.yaml](render.yaml) describes a Render deployment with a web service, a worker, and managed PostgreSQL. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) walks through Render step by step, including S3-compatible storage, the signing key, the webhook, and the judge account. [docker-compose.yml](docker-compose.yml) runs the full stack locally with PostgreSQL and MinIO.
+Two supported shapes:
+
+- **Netlify for the web application plus a separate worker host.** [netlify.toml](netlify.toml) configures the Next.js build; the worker (agents, Chromium, Lighthouse) runs on Render, Fly.io, Railway, or any Docker host because serverless functions cannot run a headless browser for minutes. [docs/NETLIFY.md](docs/NETLIFY.md) has the step-by-step guide and lists what was adapted (self-closing SSE streams, small connection pools, traced files).
+- **Everything on Render.** [render.yaml](render.yaml) describes a web service, a worker, and managed PostgreSQL; [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) walks through it.
+
+A single [Dockerfile](Dockerfile) builds an image that runs either process. [docker-compose.yml](docker-compose.yml) runs the full stack locally with PostgreSQL and MinIO.
 
 ## Judge testing instructions
 
@@ -254,7 +259,7 @@ See [JUDGE_ACCESS.md](JUDGE_ACCESS.md) for the demonstration workspace, the scen
 - Two task categories are implemented: static landing pages and JSON datasets. Adding a category means adding verification methods and a worker tool set.
 - Worker agents are platform-registered. Third-party agent registration with its own payout requires a PayPal marketplace or platform arrangement that is not part of this build; captures go to the configured merchant account.
 - Lighthouse scores vary with host resources. Thresholds should be set with that in mind.
-- The live activity stream polls the audit log over SSE rather than using a message broker, which keeps the deployment simple at the cost of a one to two second delay.
+- The live activity stream polls the audit log over SSE rather than using a message broker, which keeps the deployment simple at the cost of a one to two second delay. Streams close every 45 seconds and resume automatically so they fit serverless limits.
 - Dispute handling records the state and blocks capture; there is no dispute resolution workflow beyond the recorded procedure.
 - Email is delivered through Resend when configured. Without it, links are written to the server log.
 

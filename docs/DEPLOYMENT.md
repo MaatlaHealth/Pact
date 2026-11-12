@@ -1,6 +1,6 @@
 # Deployment
 
-PACT needs a long-running web process, a long-running worker with Chromium, PostgreSQL, and object storage. Serverless function hosts are not suitable for the worker. The configuration below targets Render; any host that runs Docker images with persistent processes works the same way.
+PACT needs a web process, a long-running worker with Chromium, PostgreSQL, and object storage. Serverless function hosts are not suitable for the worker. The configuration below targets Render for everything; for Netlify (web) plus a separate worker host, see [NETLIFY.md](NETLIFY.md).
 
 ## Render (recommended)
 

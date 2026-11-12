@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FileText, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { FileText, ArrowRight, CheckCircle2, AlertCircle, PiggyBank, Lock, Wallet, Activity } from "lucide-react";
 import { requireAppContext } from "@/lib/auth/app-context";
 import { db } from "@/lib/db";
 import { integrationStatuses } from "@/lib/env";
@@ -41,10 +41,10 @@ export default async function OverviewPage() {
       <PageHeader title="Overview" description={`${ctx.organization.name}. Numbers are computed from this workspace's own records for the current month.`} actions={<Link href="/app/contracts/new"><Button>New contract</Button></Link>} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Available budget this month" value={formatMoney(available, policy.currency)} hint={`of ${formatMoney(policy.monthlyBudgetCents, policy.currency)} monthly budget`} />
-        <Stat label="Authorized, not captured" value={formatMoney(authorizedCents, policy.currency)} hint={`${authorized._count} active authorization${authorized._count === 1 ? "" : "s"}`} tone={authorizedCents > 0 ? "warning" : undefined} />
-        <Stat label="Captured this month" value={formatMoney(capturedCents, policy.currency)} hint={`${captured._count} PayPal capture${captured._count === 1 ? "" : "s"}, ${receipts} receipt${receipts === 1 ? "" : "s"} total`} tone={capturedCents > 0 ? "success" : undefined} />
-        <Stat label="Active contracts" value={active} hint={pendingApprovals ? `${pendingApprovals} awaiting your approval` : "No pending approvals"} tone={pendingApprovals ? "warning" : undefined} />
+        <Stat label="Available budget this month" value={formatMoney(available, policy.currency)} hint={`of ${formatMoney(policy.monthlyBudgetCents, policy.currency)} monthly budget`} icon={<PiggyBank className="h-4 w-4" aria-hidden />} />
+        <Stat label="Authorized, not captured" value={formatMoney(authorizedCents, policy.currency)} hint={`${authorized._count} active authorization${authorized._count === 1 ? "" : "s"}`} tone={authorizedCents > 0 ? "warning" : undefined} icon={<Lock className="h-4 w-4" aria-hidden />} />
+        <Stat label="Captured this month" value={formatMoney(capturedCents, policy.currency)} hint={`${captured._count} PayPal capture${captured._count === 1 ? "" : "s"}, ${receipts} receipt${receipts === 1 ? "" : "s"} total`} tone={capturedCents > 0 ? "success" : undefined} icon={<Wallet className="h-4 w-4" aria-hidden />} />
+        <Stat label="Active contracts" value={active} hint={pendingApprovals ? `${pendingApprovals} awaiting your approval` : "No pending approvals"} tone={pendingApprovals ? "warning" : undefined} icon={<Activity className="h-4 w-4" aria-hidden />} />
       </div>
 
       {isEmpty ? (

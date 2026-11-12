@@ -68,7 +68,7 @@ export function ContractWorkspace({ initial, scenario, role, integrations, initi
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
       refreshTimer.current = setTimeout(() => void reload(), 600);
     });
-    source.onerror = () => setConnected(false);
+    source.onerror = () => setConnected(false); // EventSource reconnects on its own and resumes from Last-Event-ID
     return () => {
       source.close();
       if (refreshTimer.current) clearTimeout(refreshTimer.current);

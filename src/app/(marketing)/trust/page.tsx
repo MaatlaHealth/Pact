@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Section, Eyebrow, H2, Lead, CtaLink } from "@/components/marketing/sections";
+import { Section, Eyebrow, H2, Lead, CtaLink, Photograph } from "@/components/marketing/sections";
+import { PHOTOS } from "@/lib/marketing/photos";
 import { METHOD_LABELS } from "@/lib/verification/methods";
 import { PASSPORT_RULES } from "@/lib/passport/service";
 
@@ -26,9 +27,14 @@ export default function TrustPage() {
   return (
     <>
       <Section>
-        <Eyebrow>Trust and verification</Eyebrow>
-        <H2>Evidence, not claims</H2>
-        <Lead>The verifier never asks the worker whether the work is done. It loads the artifact, runs tools, and stores what the tools produced. Pass or fail per criterion comes from the tool, not from a model.</Lead>
+        <div className="grid items-center gap-8 lg:grid-cols-[1fr_1fr]">
+          <div>
+            <Eyebrow>Trust and verification</Eyebrow>
+            <H2>Evidence, not claims</H2>
+            <Lead>The verifier never asks the worker whether the work is done. It loads the artifact, runs tools, and stores what the tools produced. Pass or fail per criterion comes from the tool, not from a model.</Lead>
+          </div>
+          <Photograph photo={PHOTOS.receipts} className="aspect-[16/10]" sizes="(min-width: 1024px) 45vw, 100vw" priority />
+        </div>
         <div className="mt-8 overflow-hidden rounded-xl border border-border bg-surface">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-2 text-xs uppercase tracking-wide text-faint">

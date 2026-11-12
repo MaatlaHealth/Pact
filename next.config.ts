@@ -10,13 +10,14 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  serverExternalPackages: [
-    "playwright",
-    "lighthouse",
-    "pdfkit",
-    "pg",
-    "@prisma/adapter-pg",
-  ],
+  serverExternalPackages: ["playwright", "lighthouse", "pdfkit", "pg", "@prisma/adapter-pg"],
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
+  },
+  // Files the serverless bundler cannot discover by static analysis.
+  outputFileTracingIncludes: {
+    "/api/receipts/[number]": ["./node_modules/pdfkit/js/data/**/*", "./public/brand/pact-logo.png"],
+  },
   turbopack: {
     rules: {
       "*.css": {

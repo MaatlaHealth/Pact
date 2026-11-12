@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { LayoutDashboard, Bot, ShieldCheck, Wallet, ScrollText, Fingerprint, Radio, Database } from "lucide-react";
-import { Section, Eyebrow, H2, Lead, FeatureGrid, CtaLink } from "@/components/marketing/sections";
+import { Section, Eyebrow, H2, Lead, CtaLink } from "@/components/marketing/sections";
 import { CONTRACT_TRANSITIONS } from "@/lib/policy/state-machine";
 
 export const metadata: Metadata = { title: "Platform", description: "PACT Control for businesses and PACT Protocol infrastructure: orchestration, verification, policy, payments, receipts, and reputation." };
@@ -48,16 +48,28 @@ export default function PlatformPage() {
       </Section>
 
       <Section className="pt-0">
-        <FeatureGrid
-          items={[
+        <Eyebrow>Infrastructure</Eyebrow>
+        <H2>What runs underneath</H2>
+        <dl className="mt-8 grid gap-x-12 gap-y-8 sm:grid-cols-2">
+          {[
             { icon: Bot, title: "Agents", body: "Gemini-powered Buyer, Worker, and Verifier agents with structured outputs, bounded tool loops, timeouts, retries, and a token ceiling per run." },
             { icon: ShieldCheck, title: "Policy engine", body: "Pure functions over a database snapshot. Returns ALLOW, DENY, or REQUIRE_HUMAN_APPROVAL with every rule result, and persists the decision immutably." },
             { icon: Wallet, title: "Payments", body: "PayPal-Request-Id idempotency on every financial call, a unique financial-operation row per contract and operation, and uncertain-outcome reconciliation." },
             { icon: ScrollText, title: "Receipts", body: "Canonical JSON, SHA-256, Ed25519. JSON download and a PDF export. Public verification endpoint and published keys." },
             { icon: Fingerprint, title: "Reputation", body: "Tiers NEW, ESTABLISHED, TRUSTED computed from verified task count and correction ratio. No imports, no manual scores." },
             { icon: Radio, title: "Real-time", body: "Server-Sent Events stream the audit log for a contract or workspace, so the live view reflects exactly what the worker process recorded." },
-          ]}
-        />
+          ].map((f) => (
+            <div key={f.title} className="flex gap-4 border-t border-border pt-5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-soft text-teal">
+                <f.icon className="h-4 w-4" aria-hidden />
+              </span>
+              <div>
+                <dt className="text-sm font-semibold text-ink">{f.title}</dt>
+                <dd className="mt-1 text-sm leading-relaxed text-muted">{f.body}</dd>
+              </div>
+            </div>
+          ))}
+        </dl>
       </Section>
 
       <Section className="pt-0">

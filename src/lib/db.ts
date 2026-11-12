@@ -8,7 +8,10 @@ function createClient(): PrismaClient {
   if (!connectionString) {
     throw new Error("DATABASE_URL is not set. See .env.example.");
   }
-  const adapter = new PrismaPg({ connectionString, max: 10 });
+  // Serverless hosts run many short-lived instances; keep each pool small and
+  // point DATABASE_URL at a pooler (Neon, Supabase, PgBouncer) in that case.
+  const max = Number(process.env.DATABASE_POOL_MAX ?? (process.env.NETLIFY ? 3 : 10));
+  const adapter = new PrismaPg({ connectionString, max });
   return new PrismaClient({
     adapter,
     log: process.env.PRISMA_LOG === "query" ? ["query", "warn", "error"] : ["warn", "error"],

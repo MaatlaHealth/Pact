@@ -1,0 +1,17 @@
+# PACT Protocol on Netlify.
+# The web application (Next.js) runs here through Netlify's Next.js adapter.
+# The background worker (agents, Chromium, Lighthouse) cannot run inside
+# serverless functions and is deployed separately; see docs/NETLIFY.md.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NETLIFY_NEXT_SKEW_PROTECTION = "true"
+  # Playwright is a dependency of the worker; the web build does not need its browsers.
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

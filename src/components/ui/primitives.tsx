@@ -126,12 +126,15 @@ export function PageHeader({ title, description, actions, eyebrow }: { title: st
   );
 }
 
-export function Stat({ label, value, hint, tone }: { label: string; value: React.ReactNode; hint?: string; tone?: Tone }) {
+export function Stat({ label, value, hint, tone, icon }: { label: string; value: React.ReactNode; hint?: string; tone?: Tone; icon?: React.ReactNode }) {
   return (
     <Card className="px-5 py-4">
-      <p className="text-xs font-medium text-muted">{label}</p>
-      <p className={cn("mt-1 text-2xl font-semibold tracking-tight tabular-nums", tone === "success" ? "text-success" : tone === "warning" ? "text-warning" : "text-ink")}>{value}</p>
-      {hint ? <p className="mt-1 text-xs text-faint">{hint}</p> : null}
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs font-medium text-muted">{label}</p>
+        {icon ? <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-md", tone === "success" ? "bg-success-soft text-success" : tone === "warning" ? "bg-warning-soft text-warning" : "bg-navy-soft text-navy")}>{icon}</span> : null}
+      </div>
+      <p className={cn("mt-2 text-[1.65rem] font-semibold leading-none tracking-tight tabular-nums", tone === "success" ? "text-success" : tone === "warning" ? "text-warning" : "text-ink")}>{value}</p>
+      {hint ? <p className="mt-2 text-xs text-faint">{hint}</p> : null}
     </Card>
   );
 }

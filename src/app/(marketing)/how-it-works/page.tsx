@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Section, Eyebrow, H2, Lead, CtaLink, PipelineDiagram } from "@/components/marketing/sections";
+import { Section, Eyebrow, H2, Lead, CtaLink, PipelineDiagram, Photograph } from "@/components/marketing/sections";
+import { PHOTOS } from "@/lib/marketing/photos";
 
 export const metadata: Metadata = { title: "How PACT works", description: "The thirteen-stage lifecycle from a natural-language goal to a signed Proof of Work Receipt." };
 
@@ -23,10 +24,15 @@ export default function HowItWorksPage() {
   return (
     <>
       <Section>
-        <Eyebrow>How PACT works</Eyebrow>
-        <H2>From a sentence to a signed receipt</H2>
-        <Lead>Thirteen stages, each recorded. The pipeline below is the shape of every contract; the stages are what happens inside it.</Lead>
-        <div className="mt-8">
+        <div className="grid items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <Eyebrow>How PACT works</Eyebrow>
+            <H2>From a sentence to a signed receipt</H2>
+            <Lead>Thirteen stages, each recorded. The pipeline below is the shape of every contract; the stages are what happens inside it.</Lead>
+          </div>
+          <Photograph photo={PHOTOS.verification} className="aspect-[4/3]" sizes="(min-width: 1024px) 40vw, 100vw" priority />
+        </div>
+        <div className="mt-12">
           <PipelineDiagram compact />
         </div>
       </Section>
