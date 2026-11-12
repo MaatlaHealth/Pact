@@ -110,3 +110,16 @@ export async function removeMember(input: { organizationId: string; targetUserId
   await db.membership.delete({ where: { id: target.id } });
   await recordAudit({ organizationId: input.organizationId, actorType: "USER", actorId: input.actorId, action: "organization.member_removed", entityType: "membership", entityId: target.id, title: "Member removed", severity: "NOTICE" });
 }
+
+/**
+ * Deletes a workspace and everything it owns. Append-only tables (evidence,
+ * policy decisions, payment events) reject deletes unless the transaction
+ * declares an explicit purge, which this function does. Nothing else in the
+ * application sets that flag.
+ */
+export async function purgeOrganization(organizationId: string): Promise<void> {
+  await db.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe("SET LOCAL pact.allow_purge = 'on'");
+    await tx.organization.delete({ where: { id: organizationId } });
+  });
+}

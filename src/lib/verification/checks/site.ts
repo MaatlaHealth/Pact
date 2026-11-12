@@ -9,6 +9,27 @@ import { jsonEvidence, fileByPath } from "@/lib/verification/types";
  * is taken from worker claims.
  */
 
+/** Browser-side section detector, kept as plain source text (see requiredSections). */
+const SECTION_DETECTOR = `function (names) {
+  var norm = function (s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); };
+  return names.map(function (name) {
+    var n = norm(name);
+    var candidates = Array.prototype.slice.call(document.querySelectorAll("section, header, footer, main, div, article, form, nav"));
+    var match = candidates.find(function (el) {
+      var id = norm(el.id);
+      var cls = norm(typeof el.className === "string" ? el.className : "");
+      var data = norm(el.getAttribute("data-section"));
+      var aria = norm(el.getAttribute("aria-label"));
+      var heading = el.querySelector("h1, h2, h3");
+      var headingText = norm(heading ? heading.textContent : "");
+      var tag = el.tagName.toLowerCase();
+      return id.indexOf(n) !== -1 || data === n || aria.indexOf(n) !== -1 || cls.split(" ").indexOf(n) !== -1 || headingText.indexOf(n) !== -1 || (n === "hero" && tag === "header" && el.querySelector("h1") !== null) || (n === "contact" && tag === "form");
+    });
+    var rect = match ? match.getBoundingClientRect() : null;
+    return { name: name, found: Boolean(match), tag: match ? match.tagName.toLowerCase() : null, id: match ? match.id : null, visible: Boolean(rect && rect.width > 0 && rect.height > 0), textLength: match && match.textContent ? match.textContent.trim().length : 0 };
+  });
+}`;
+
 const previewPolicy = (ctx: CheckContext) => ({ allowHosts: [new URL(ctx.previewOrigin).hostname], allowHttp: true });
 
 export async function httpAvailability(ctx: CheckContext): Promise<CheckResult> {
@@ -32,25 +53,10 @@ export async function requiredSections(ctx: CheckContext): Promise<CheckResult> 
   try {
     const page = await context.newPage();
     await page.goto(ctx.previewUrl, { waitUntil: "load", timeout: 30000 });
-    const found = await page.evaluate((names: string[]) => {
-      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      return names.map((name) => {
-        const n = norm(name);
-        const candidates = Array.from(document.querySelectorAll("section, header, footer, main, div, article, form, nav"));
-        const match = candidates.find((el) => {
-          const id = norm(el.id ?? "");
-          const cls = norm(el.className && typeof el.className === "string" ? el.className : "");
-          const data = norm(el.getAttribute("data-section") ?? "");
-          const aria = norm(el.getAttribute("aria-label") ?? "");
-          const heading = el.querySelector("h1, h2, h3");
-          const headingText = norm(heading?.textContent ?? "");
-          const tag = el.tagName.toLowerCase();
-          return id.includes(n) || data === n || aria.includes(n) || cls.split(" ").includes(n) || headingText.includes(n) || (n === "hero" && tag === "header" && el.querySelector("h1") !== null) || (n === "contact" && tag === "form");
-        });
-        const rect = match?.getBoundingClientRect();
-        return { name, found: Boolean(match), tag: match?.tagName.toLowerCase() ?? null, id: match?.id ?? null, visible: Boolean(rect && rect.width > 0 && rect.height > 0), textLength: match?.textContent?.trim().length ?? 0 };
-      });
-    }, sections);
+    // Serialized as source text on purpose: code nested inside page.evaluate must
+    // not be transformed by esbuild helpers (tsx injects __name for named inner
+    // functions, which do not exist in the browser).
+    const found = (await page.evaluate(`(${SECTION_DETECTOR})(${JSON.stringify(sections)})`)) as { name: string; found: boolean; tag: string | null; id: string | null; visible: boolean; textLength: number }[];
     const screenshot = await page.screenshot({ fullPage: true, type: "png" });
     const missing = found.filter((f) => !f.found || !f.visible || f.textLength < 10);
     return {

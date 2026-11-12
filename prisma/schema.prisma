@@ -569,7 +569,7 @@ model Deliverable {
 
   contract         Contract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
   workerAgent      Agent             @relation(fields: [workerAgentId], references: [id])
-  run              AgentRun?         @relation(fields: [runId], references: [id])
+  run              AgentRun?         @relation(fields: [runId], references: [id], onDelete: SetNull)
   verificationRuns VerificationRun[]
   formCaptures     FormCapture[]
 
@@ -608,9 +608,9 @@ model VerificationRun {
   createdAt       DateTime                    @default(now()) @map("created_at")
 
   contract      Contract             @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  deliverable   Deliverable          @relation(fields: [deliverableId], references: [id])
+  deliverable   Deliverable          @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
   verifierAgent Agent                @relation(fields: [verifierAgentId], references: [id])
-  agentRun      AgentRun?            @relation(fields: [agentRunId], references: [id])
+  agentRun      AgentRun?            @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
   results       VerificationResult[]
   evidence      EvidenceRecord[]
 
@@ -630,7 +630,7 @@ model VerificationResult {
   checkedAt         DateTime           @default(now()) @map("checked_at")
 
   verificationRun VerificationRun     @relation(fields: [verificationRunId], references: [id], onDelete: Cascade)
-  criterion       AcceptanceCriterion @relation(fields: [criterionId], references: [id])
+  criterion       AcceptanceCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
   evidence        EvidenceRecord[]
 
   @@unique([verificationRunId, criterionKey])
@@ -663,8 +663,8 @@ model EvidenceRecord {
   metadata          Json?
   createdAt         DateTime     @default(now()) @map("created_at")
 
-  verificationRun VerificationRun     @relation(fields: [verificationRunId], references: [id])
-  result          VerificationResult? @relation(fields: [resultId], references: [id])
+  verificationRun VerificationRun     @relation(fields: [verificationRunId], references: [id], onDelete: Cascade)
+  result          VerificationResult? @relation(fields: [resultId], references: [id], onDelete: Cascade)
 
   @@index([verificationRunId])
   @@map("evidence_records")
@@ -682,7 +682,7 @@ model FormCapture {
   receivedAt    DateTime @default(now()) @map("received_at")
 
   contract    Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  deliverable Deliverable? @relation(fields: [deliverableId], references: [id])
+  deliverable Deliverable? @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
 
   @@index([token, receivedAt])
   @@map("form_captures")
@@ -861,7 +861,7 @@ model PaymentEvent {
   createdAt  DateTime           @default(now()) @map("created_at")
 
   contract Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  order    PayPalOrder? @relation(fields: [orderId], references: [id])
+  order    PayPalOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([contractId, createdAt])
   @@map("payment_events")

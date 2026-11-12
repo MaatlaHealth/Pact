@@ -1,8 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowRight, Bot, FileCheck2, ShieldCheck, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Photo } from "@/lib/marketing/photos";
 
 export function Section({ children, className, id }: { children: React.ReactNode; className?: string; id?: string }) {
   return (
@@ -42,16 +40,6 @@ export function CtaLink({ href, children, variant = "primary", className }: { hr
   );
 }
 
-/** Editorial photo with a caption. Uses the Unsplash CDN through next/image. */
-export function Photograph({ photo, className, sizes = "(min-width: 1024px) 50vw, 100vw", priority, rounded = true }: { photo: Photo; className?: string; sizes?: string; priority?: boolean; rounded?: boolean }) {
-  return (
-    <figure className={cn("relative overflow-hidden", rounded && "rounded-2xl", className)}>
-      <Image src={photo.src} alt={photo.alt} width={photo.width} height={photo.height} sizes={sizes} priority={priority} className="h-full w-full object-cover" />
-      <figcaption className="pointer-events-none absolute bottom-2 right-3 text-[10px] font-medium uppercase tracking-wider text-white/70 drop-shadow">Photo {photo.credit}</figcaption>
-    </figure>
-  );
-}
-
 /** The protocol pipeline, drawn with real role names and the actual gate between verification and settlement. */
 export function PipelineDiagram({ compact }: { compact?: boolean }) {
   const steps = [
@@ -77,22 +65,5 @@ export function PipelineDiagram({ compact }: { compact?: boolean }) {
         </li>
       ))}
     </ol>
-  );
-}
-
-/** Alternating photo and copy row. */
-export function FeatureRow({ photo, eyebrow, title, children, href, hrefLabel, reverse }: { photo: Photo; eyebrow: string; title: string; children: React.ReactNode; href: string; hrefLabel: string; reverse?: boolean }) {
-  return (
-    <div className={cn("grid items-center gap-8 lg:grid-cols-2 lg:gap-14", reverse && "lg:[&>*:first-child]:order-2")}>
-      <Photograph photo={photo} className="aspect-[4/3]" />
-      <div>
-        <Eyebrow>{eyebrow}</Eyebrow>
-        <h3 className="text-2xl font-semibold tracking-[-0.02em] text-ink">{title}</h3>
-        <div className="mt-4 space-y-3 text-[15px] leading-relaxed text-muted">{children}</div>
-        <Link href={href} className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-navy hover:underline">
-          {hrefLabel} <ArrowRight className="h-4 w-4" aria-hidden />
-        </Link>
-      </div>
-    </div>
   );
 }

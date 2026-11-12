@@ -5,6 +5,7 @@ This is the content for the Devpost "testing instructions" field. The repository
 ## Access
 
 - Application: <deployment URL>
+- Judge entry: <deployment URL>/judge with access code <JUDGE_ACCESS_CODE> (no sign-up). The judge email and password below also work at /sign-in.
 - Judge login: <JUDGE_EMAIL> / <JUDGE_PASSWORD> (admin of the "PACT Judge Demo" workspace; labelled as a demo in the interface)
 - PayPal sandbox payer: <sandbox personal account email> / <password>
 - Source code: https://github.com/MaatlaHealth/Pact
@@ -12,7 +13,7 @@ This is the content for the Devpost "testing instructions" field. The repository
 
 ## Scenario A: defective draft, blocked payment, correction, capture (10 minutes)
 
-1. Sign in. Go to Contracts, then New contract.
+1. Open /judge, enter the access code. Go to Contracts, then New contract.
 2. Keep the prefilled landing page objective, budget USD 60, and the "Defective first draft" scenario. Click Generate contract.
 3. Review the criteria and click Approve contract and start negotiation.
 4. Watch the Agents tab until the status becomes Awaiting payment authorization.

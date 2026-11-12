@@ -68,6 +68,7 @@ async function main() {
     data: { organizationId: organization.id, actorType: "SYSTEM", actorLabel: "Judge seed", action: "judge.workspace_prepared", title: "Judge demonstration workspace prepared", description: "This workspace is labelled as a demonstration. PayPal transactions made here are real sandbox transactions.", severity: "NOTICE" },
   });
   console.log(`Judge account ready: ${email} (workspace ${organization.slug}, role ADMIN)`);
+  if (!process.env.JUDGE_ACCESS_CODE) console.log("Set JUDGE_ACCESS_CODE on the deployment so judges can enter at /judge without a password.");
   await prisma.$disconnect();
 }
 

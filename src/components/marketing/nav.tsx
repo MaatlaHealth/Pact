@@ -11,6 +11,7 @@ const links = [
   { href: "/platform", label: "Platform" },
   { href: "/trust", label: "Trust" },
   { href: "/developers", label: "Developers" },
+  { href: "/judge", label: "For judges" },
 ];
 
 export function MarketingNav() {

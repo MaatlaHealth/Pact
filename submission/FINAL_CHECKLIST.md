@@ -42,7 +42,8 @@ Status as of the handover. "Done" means verified by running it. "Blocked" means 
 - [ ] Storage: S3-compatible bucket for production
 - [ ] Signing key: run `npm run keys:generate` and set the variables on the deployment
 - [ ] Deployment: create the Render blueprint, set variables, deploy, smoke test
-- [ ] Judge account: `npm run judge:seed` on the deployment; provide credentials privately
+- [ ] Judge account: `npm run judge:seed` against the production database; set JUDGE_ACCESS_CODE on the deployment; provide the code and credentials privately
+- [ ] GitHub repository switched to public so the links on the site resolve
 - [ ] Video: record per VIDEO_SCRIPT.md and VIDEO_SHOT_LIST.md; upload to YouTube; add the link to DEVPOST_ANSWERS.md
 
 ## Devpost form

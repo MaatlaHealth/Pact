@@ -1,8 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
 import { Logo } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme";
-import { PHOTOS } from "@/lib/marketing/photos";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -20,23 +18,25 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             Back to pactprotocol
           </Link>
           <span className="mx-2">·</span>
+          <Link href="/judge" className="hover:text-ink">
+            For judges
+          </Link>
+          <span className="mx-2">·</span>
           <Link href="/trust" className="hover:text-ink">
             Trust and verification
           </Link>
         </footer>
       </div>
-      <aside className="relative hidden overflow-hidden lg:block" aria-hidden>
-        <Image src={PHOTOS.facade.src} alt="" width={PHOTOS.facade.width} height={PHOTOS.facade.height} sizes="50vw" className="absolute inset-0 h-full w-full object-cover" priority />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0b2a5b]/90 via-[#0b2a5b]/30 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 p-10 text-white">
+      <aside className="relative hidden overflow-hidden bg-[#0b2a5b] text-white lg:block dark:bg-[#071a36]" aria-hidden>
+        <div className="grid-paper absolute inset-0 opacity-20" />
+        <div className="relative flex h-full flex-col justify-end p-12">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#4de3d3]">Why PACT</p>
           <p className="mt-3 max-w-md text-2xl font-medium leading-snug tracking-[-0.02em]">Agents can negotiate and do the work. Only evidence and policy can release the payment.</p>
-          <ul className="mt-5 space-y-1.5 text-sm text-white/80">
+          <ul className="mt-6 space-y-2 text-sm text-white/80">
             <li>PayPal authorization held up front, captured once after verification</li>
             <li>Independent checks in a real browser, evidence stored append-only</li>
             <li>Signed receipts anyone can verify</li>
           </ul>
-          <p className="mt-6 text-[10px] uppercase tracking-wider text-white/50">Photo {PHOTOS.facade.credit} on Unsplash</p>
         </div>
       </aside>
     </div>

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Logo } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme";
 import { MarketingNav } from "@/components/marketing/nav";
-import { PHOTO_CREDITS } from "@/lib/marketing/photos";
 
 const footerLinks = [
   { href: "/how-it-works", label: "How it works" },
@@ -50,18 +49,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </div>
           <div className="mt-10 flex flex-col gap-2 border-t border-border pt-5 text-[11px] text-faint sm:flex-row sm:items-center sm:justify-between">
             <p>MIT licensed. Built for the PayPal AI Hackathon, November 2026.</p>
-            <p>
-              Photography on Unsplash by{" "}
-              {PHOTO_CREDITS.map((p, i) => (
-                <span key={p.creditUrl}>
-                  <a href={p.creditUrl} className="hover:text-ink" rel="noreferrer" target="_blank">
-                    {p.credit}
-                  </a>
-                  {i < PHOTO_CREDITS.length - 1 ? ", " : ""}
-                </span>
-              ))}
-              .
-            </p>
+            <p>Screenshots on this site are of the running application.</p>
           </div>
         </div>
       </footer>

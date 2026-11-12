@@ -30,7 +30,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ token: str
     "Referrer-Policy": "no-referrer",
   };
   if (contentType.startsWith("text/html")) {
-    headers["Content-Security-Policy"] = `sandbox allow-forms allow-scripts allow-same-origin; default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; form-action 'self' /api/form-capture/${token}; frame-ancestors 'self'; base-uri 'none'; object-src 'none'`;
+    headers["Content-Security-Policy"] = `sandbox allow-forms allow-scripts allow-same-origin; default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'self'; base-uri 'none'; object-src 'none'`;
   }
   return new NextResponse(new Uint8Array(object.body), { status: 200, headers });
 }

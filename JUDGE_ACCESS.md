@@ -11,7 +11,7 @@ This file explains how to evaluate PACT Protocol without creating an account. It
 
 ## The ten-minute walkthrough
 
-1. **Sign in** at `<deployment URL>/sign-in` with the judge email and password from the testing instructions.
+1. **Enter the workspace** at `<deployment URL>/judge` with the access code from the testing instructions (no sign-up, no password). The judge email and password from the same instructions also work at `/sign-in`.
 2. **Overview** shows live numbers for the workspace. If the workspace is fresh, you will see the onboarding checklist and the integration status.
 3. **New contract** (`Contracts` then `New contract`). The landing page template is prefilled: hero, features, pricing, a working contact form, accessibility, Lighthouse mobile performance of at least 90, budget USD 60. Keep the **Defective first draft** scenario selected. Click **Generate contract**. Gemini drafts the structured contract in 10 to 30 seconds.
 4. **Review and approve.** Read the criteria. Objective ones say which tool checks them; subjective ones carry a rubric. Edit if you like (each edit is a new version with its own hash), then **Approve contract and start negotiation**. This freezes the hash.

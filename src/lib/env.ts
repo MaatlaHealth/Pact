@@ -52,6 +52,7 @@ const envSchema = z.object({
 
   JUDGE_EMAIL: optional,
   JUDGE_PASSWORD: optional,
+  JUDGE_ACCESS_CODE: optional,
   JUDGE_ORG_NAME: z.string().default("PACT Judge Demo"),
 });
 

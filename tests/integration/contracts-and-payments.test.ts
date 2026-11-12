@@ -87,6 +87,12 @@ describe("financial idempotency and append-only records", () => {
     const decision = await db.policyDecision.create({ data: { organizationId: org.organization.id, contractId: contract.id, action: "CAPTURE_PAYMENT", outcome: "DENY", rules: [], inputSnapshot: {}, engineVersion: "test" } });
     await expect(db.policyDecision.update({ where: { id: decision.id }, data: { outcome: "ALLOW" } })).rejects.toThrow(/append-only/);
     await expect(db.policyDecision.delete({ where: { id: decision.id } })).rejects.toThrow(/append-only/);
+    // An explicit purge is the only way to delete, and only inside its own transaction.
+    await db.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe("SET LOCAL pact.allow_purge = 'on'");
+      await tx.policyDecision.delete({ where: { id: decision.id } });
+    });
+    await expect(db.policyDecision.findUnique({ where: { id: decision.id } })).resolves.toBeNull();
   });
 });
 

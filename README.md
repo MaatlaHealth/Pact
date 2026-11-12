@@ -252,7 +252,7 @@ A single [Dockerfile](Dockerfile) builds an image that runs either process. [doc
 
 ## Judge testing instructions
 
-See [JUDGE_ACCESS.md](JUDGE_ACCESS.md) for the demonstration workspace, the scenario that shows verification blocking a payment, and the sandbox payer steps. Credentials are provided separately and are never committed.
+Judges enter the preconfigured workspace at `/judge` with an access code (`JUDGE_ACCESS_CODE`). See [JUDGE_ACCESS.md](JUDGE_ACCESS.md) for the demonstration workspace, the scenario that shows verification blocking a payment, and the sandbox payer steps. Credentials are provided separately and are never committed.
 
 ## Known limitations
 

@@ -56,7 +56,8 @@ typescript, next.js, react, tailwindcss, postgresql, prisma, playwright, lightho
 
 See JUDGE_ACCESS.md in the repository for the walkthrough. Credentials:
 
-- Judge login: <JUDGE_EMAIL> / <JUDGE_PASSWORD>
+- Judge entry: <deployment URL>/judge with access code <JUDGE_ACCESS_CODE>
+- Judge login (alternative): <JUDGE_EMAIL> / <JUDGE_PASSWORD>
 - PayPal sandbox payer: <sandbox personal account email> / <password>
 
 Use the "Defective first draft" scenario on the New contract page to watch verification block the payment before the worker corrects the real file.

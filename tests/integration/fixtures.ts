@@ -6,6 +6,7 @@ import { seedPlatformAgents } from "../../prisma/seed";
 import type { Principal } from "@/lib/auth/guards";
 import { saveVersion } from "@/lib/contracts/service";
 import type { ContractContent } from "@/lib/contracts/schema";
+import { purgeOrganization } from "@/lib/orgs/service";
 
 export async function ensureAgents() {
   await seedPlatformAgents(db);
@@ -29,7 +30,7 @@ export async function createOrgWithOwner(label = "test") {
 
 export async function cleanupOrg(organizationId: string) {
   const members = await db.membership.findMany({ where: { organizationId } });
-  await db.organization.delete({ where: { id: organizationId } }).catch(() => undefined);
+  await purgeOrganization(organizationId);
   for (const m of members) await db.user.delete({ where: { id: m.userId } }).catch(() => undefined);
 }
 

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Section, Eyebrow, H2, Lead, CtaLink, Photograph } from "@/components/marketing/sections";
-import { PHOTOS } from "@/lib/marketing/photos";
+import Image from "next/image";
+import { Section, Eyebrow, H2, Lead, CtaLink } from "@/components/marketing/sections";
 import { METHOD_LABELS } from "@/lib/verification/methods";
 import { PASSPORT_RULES } from "@/lib/passport/service";
 
@@ -33,7 +33,10 @@ export default function TrustPage() {
             <H2>Evidence, not claims</H2>
             <Lead>The verifier never asks the worker whether the work is done. It loads the artifact, runs tools, and stores what the tools produced. Pass or fail per criterion comes from the tool, not from a model.</Lead>
           </div>
-          <Photograph photo={PHOTOS.receipts} className="aspect-[16/10]" sizes="(min-width: 1024px) 45vw, 100vw" priority />
+          <figure>
+            <Image src="/screenshots/verification-failed.png" alt="A failed verification run with per-criterion results and evidence links" width={2880} height={1800} sizes="(min-width: 1024px) 45vw, 100vw" priority className="h-auto w-full rounded-xl border border-border shadow-card" />
+            <figcaption className="mt-2 text-xs text-muted">A real verification run from the application: nine criteria passed, the contact form check failed.</figcaption>
+          </figure>
         </div>
         <div className="mt-8 overflow-hidden rounded-xl border border-border bg-surface">
           <table className="w-full text-left text-sm">
@@ -56,6 +59,33 @@ export default function TrustPage() {
             </tbody>
           </table>
         </div>
+      </Section>
+
+      <Section className="pt-0">
+        <Eyebrow>Financial controls</Eyebrow>
+        <H2>Rules a model cannot talk its way around</H2>
+        <Lead>Every capture decision evaluates these rules against database facts and stores the result with every rule. This is the engine&apos;s actual rule set.</Lead>
+        <ul className="mt-6 grid gap-x-8 gap-y-2.5 sm:grid-cols-2">
+          {[
+            "Contract status and payment state are eligible",
+            "Approved contract hash still matches its content",
+            "PayPal authorization exists, is CREATED, and has not expired",
+            "Authorized amount and currency equal the agreed amount",
+            "Latest verification passed and covers the latest deliverable",
+            "Every required objective criterion has a tool-backed pass",
+            "Verifier is a platform agent distinct from the worker",
+            "Amount within budget, transaction cap, and monthly budget",
+            "Worker is active, capable, and within its spend limit",
+            "Payee matches the configured merchant recipient",
+            "No capture already exists",
+            "Rate limit, subjective review, cold-start, and human approval rules",
+          ].map((r) => (
+            <li key={r} className="flex items-start gap-2.5 text-[14px] leading-snug text-ink-2">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-teal" aria-hidden />
+              {r}
+            </li>
+          ))}
+        </ul>
       </Section>
 
       <Section className="pt-0">
