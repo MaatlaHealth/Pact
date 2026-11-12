@@ -31,7 +31,7 @@ export function MarketingNav() {
       {open ? (
         <div id="mobile-nav" className="absolute inset-x-0 top-16 border-b border-border bg-surface p-3 shadow-card md:hidden">
           <nav aria-label="Mobile" className="flex flex-col">
-            {[...links, { href: "/sign-in", label: "Sign in" }].map((l) => (
+            {[...links, { href: "/sign-in", label: "Sign in" }, { href: "/sign-up", label: "Create account" }].map((l) => (
               <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm font-medium text-ink hover:bg-surface-2">
                 {l.label}
               </Link>

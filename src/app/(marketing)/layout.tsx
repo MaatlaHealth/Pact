@@ -25,7 +25,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <Link href="/sign-in" className="hidden h-9 items-center rounded-lg px-3 text-sm font-medium text-ink-2 hover:bg-surface-2 sm:inline-flex">
               Sign in
             </Link>
-            <Link href="/sign-up" className="inline-flex h-9 items-center rounded-lg bg-[#0b2a5b] px-3.5 text-sm font-medium text-white shadow-sm hover:bg-[#133a78] dark:bg-[#2fd4c2] dark:text-[#0a1628]">
+            <Link href="/sign-up" className="hidden h-9 items-center whitespace-nowrap rounded-lg bg-[#0b2a5b] px-3.5 text-sm font-medium text-white shadow-sm hover:bg-[#133a78] sm:inline-flex dark:bg-[#2fd4c2] dark:text-[#0a1628]">
               Create account
             </Link>
           </div>
