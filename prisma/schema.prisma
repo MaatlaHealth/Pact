@@ -1,0 +1,1095 @@
+// PACT Protocol data model.
+// Money is stored in integer minor units (cents) alongside an ISO currency code.
+// Contract status, verification state, and PayPal payment state are tracked
+// separately because one field cannot represent all three domains honestly.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Identity and access
+// ---------------------------------------------------------------------------
+
+model User {
+  id              String    @id @default(uuid(7))
+  email           String    @unique
+  name            String
+  passwordHash    String    @map("password_hash")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  sessions                 Session[]
+  memberships              Membership[]
+  emailVerificationTokens  EmailVerificationToken[]
+  passwordResetTokens      PasswordResetToken[]
+  invitationsSent          Invitation[]             @relation("InvitationInviter")
+  approvalDecisions        ApprovalRequest[]        @relation("ApprovalDecider")
+  contractsCreated         Contract[]               @relation("ContractCreator")
+  contractVersionsApproved ContractVersion[]        @relation("ContractVersionApprover")
+  apiKeysCreated           ApiKey[]
+
+  @@map("users")
+}
+
+model Session {
+  id         String    @id @default(uuid(7))
+  userId     String    @map("user_id")
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastUsedAt DateTime  @default(now()) @map("last_used_at")
+  revokedAt  DateTime? @map("revoked_at")
+  ipAddress  String?   @map("ip_address")
+  userAgent  String?   @map("user_agent")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid(7))
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid(7))
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+enum OrganizationKind {
+  STANDARD
+  JUDGE_DEMO
+}
+
+model Organization {
+  id        String           @id @default(uuid(7))
+  name      String
+  slug      String           @unique
+  kind      OrganizationKind @default(STANDARD)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  memberships         Membership[]
+  invitations         Invitation[]
+  spendingPolicy      SpendingPolicy?
+  agents              Agent[]
+  contracts           Contract[]
+  approvalRequests    ApprovalRequest[]
+  policyDecisions     PolicyDecision[]
+  paypalOrders        PayPalOrder[]
+  receipts            Receipt[]
+  auditEvents         AuditEvent[]
+  integrationSettings IntegrationSetting[]
+  apiKeys             ApiKey[]
+
+  @@map("organizations")
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+model Membership {
+  id             String         @id @default(uuid(7))
+  userId         String         @map("user_id")
+  organizationId String         @map("organization_id")
+  role           MembershipRole @default(MEMBER)
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@map("memberships")
+}
+
+model Invitation {
+  id             String         @id @default(uuid(7))
+  organizationId String         @map("organization_id")
+  email          String
+  role           MembershipRole @default(MEMBER)
+  tokenHash      String         @unique @map("token_hash")
+  invitedById    String         @map("invited_by_id")
+  expiresAt      DateTime       @map("expires_at")
+  acceptedAt     DateTime?      @map("accepted_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("InvitationInviter", fields: [invitedById], references: [id])
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitations")
+}
+
+model ApiKey {
+  id             String    @id @default(uuid(7))
+  organizationId String    @map("organization_id")
+  name           String
+  prefix         String
+  keyHash        String    @unique @map("key_hash")
+  scopes         String[]
+  createdById    String    @map("created_by_id")
+  lastUsedAt     DateTime? @map("last_used_at")
+  revokedAt      DateTime? @map("revoked_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation(fields: [createdById], references: [id])
+
+  @@index([organizationId])
+  @@map("api_keys")
+}
+
+// ---------------------------------------------------------------------------
+// Spending policy
+// ---------------------------------------------------------------------------
+
+model SpendingPolicy {
+  id                             String   @id @default(uuid(7))
+  organizationId                 String   @unique @map("organization_id")
+  currency                       String   @default("USD")
+  maxTransactionAmountCents      Int      @default(10000) @map("max_transaction_amount_cents")
+  monthlyBudgetCents             Int      @default(50000) @map("monthly_budget_cents")
+  perAgentLimitCents             Int      @default(25000) @map("per_agent_limit_cents")
+  coldStartAgentLimitCents       Int      @default(7500) @map("cold_start_agent_limit_cents")
+  requireHumanApprovalForCapture Boolean  @default(false) @map("require_human_approval_for_capture")
+  humanApprovalAboveCents        Int?     @map("human_approval_above_cents")
+  subjectiveCriteriaRequireHuman Boolean  @default(true) @map("subjective_criteria_require_human")
+  maxNegotiationRounds           Int      @default(4) @map("max_negotiation_rounds")
+  maxCorrectionAttempts          Int      @default(3) @map("max_correction_attempts")
+  allowedCategories              String[] @default(["LANDING_PAGE", "JSON_DATASET"]) @map("allowed_categories")
+  captureRateLimitPerHour        Int      @default(20) @map("capture_rate_limit_per_hour")
+  updatedAt                      DateTime @updatedAt @map("updated_at")
+  createdAt                      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("spending_policies")
+}
+
+// ---------------------------------------------------------------------------
+// Agents
+// ---------------------------------------------------------------------------
+
+enum AgentRole {
+  BUYER
+  WORKER
+  VERIFIER
+}
+
+enum AgentStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum TaskCategory {
+  LANDING_PAGE
+  JSON_DATASET
+}
+
+model Agent {
+  id              String      @id @default(uuid(7))
+  organizationId  String?     @map("organization_id")
+  slug            String      @unique
+  name            String
+  role            AgentRole
+  description     String
+  status          AgentStatus @default(ACTIVE)
+  modelProvider   String      @default("gemini") @map("model_provider")
+  model           String
+  promptVersion   String      @map("prompt_version")
+  isPlatformAgent Boolean     @default(false) @map("is_platform_agent")
+  registeredAt    DateTime    @default(now()) @map("registered_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  organization        Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  capabilities        AgentCapability[]
+  runs                AgentRun[]
+  messagesSent        AgentMessage[]    @relation("MessageSender")
+  messagesReceived    AgentMessage[]    @relation("MessageRecipient")
+  contractsAsBuyer    Contract[]        @relation("ContractBuyerAgent")
+  contractsAsWorker   Contract[]        @relation("ContractWorkerAgent")
+  contractsAsVerifier Contract[]        @relation("ContractVerifierAgent")
+  deliverables        Deliverable[]
+  verificationRuns    VerificationRun[]
+  trustPassport       TrustPassport?
+  receiptsAsWorker    Receipt[]         @relation("ReceiptWorker")
+
+  @@index([role, status])
+  @@map("agents")
+}
+
+model AgentCapability {
+  id             String       @id @default(uuid(7))
+  agentId        String       @map("agent_id")
+  category       TaskCategory
+  description    String
+  maxBudgetCents Int?         @map("max_budget_cents")
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, category])
+  @@map("agent_capabilities")
+}
+
+enum AgentRunPurpose {
+  CONTRACT_GENERATION
+  NEGOTIATION
+  EXECUTION
+  CORRECTION
+  VERIFICATION
+  SUBJECTIVE_REVIEW
+}
+
+enum AgentRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+  CANCELLED
+}
+
+model AgentRun {
+  id            String          @id @default(uuid(7))
+  contractId    String?         @map("contract_id")
+  agentId       String          @map("agent_id")
+  purpose       AgentRunPurpose
+  status        AgentRunStatus  @default(QUEUED)
+  correlationId String          @map("correlation_id")
+  model         String
+  iterations    Int             @default(0)
+  inputTokens   Int             @default(0) @map("input_tokens")
+  outputTokens  Int             @default(0) @map("output_tokens")
+  startedAt     DateTime?       @map("started_at")
+  finishedAt    DateTime?       @map("finished_at")
+  error         String?
+  summary       String?
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  contract         Contract?            @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  agent            Agent                @relation(fields: [agentId], references: [id])
+  messages         AgentMessage[]
+  toolExecutions   AgentToolExecution[]
+  deliverables     Deliverable[]
+  verificationRuns VerificationRun[]
+
+  @@index([contractId])
+  @@index([agentId])
+  @@index([correlationId])
+  @@map("agent_runs")
+}
+
+enum AgentMessageKind {
+  TASK_BRIEF
+  PROPOSAL
+  COUNTER_PROPOSAL
+  ACCEPT
+  REJECT
+  STATUS
+  SUBMISSION
+  VERIFICATION_REPORT
+  CORRECTION_REQUEST
+  NOTE
+}
+
+model AgentMessage {
+  id            String           @id @default(uuid(7))
+  runId         String           @map("run_id")
+  contractId    String?          @map("contract_id")
+  fromAgentId   String           @map("from_agent_id")
+  toAgentId     String?          @map("to_agent_id")
+  kind          AgentMessageKind
+  sequence      Int
+  content       String
+  structured    Json?
+  correlationId String           @map("correlation_id")
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  run       AgentRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  contract  Contract? @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  fromAgent Agent     @relation("MessageSender", fields: [fromAgentId], references: [id])
+  toAgent   Agent?    @relation("MessageRecipient", fields: [toAgentId], references: [id])
+
+  @@index([contractId, createdAt])
+  @@index([runId, sequence])
+  @@map("agent_messages")
+}
+
+enum ToolExecutionStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+}
+
+model AgentToolExecution {
+  id         String              @id @default(uuid(7))
+  runId      String              @map("run_id")
+  toolName   String              @map("tool_name")
+  input      Json
+  output     Json?
+  status     ToolExecutionStatus @default(RUNNING)
+  error      String?
+  startedAt  DateTime            @default(now()) @map("started_at")
+  finishedAt DateTime?           @map("finished_at")
+  durationMs Int?                @map("duration_ms")
+
+  run AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@map("agent_tool_executions")
+}
+
+// ---------------------------------------------------------------------------
+// Contracts
+// ---------------------------------------------------------------------------
+
+enum ContractStatus {
+  DRAFT
+  AWAITING_APPROVAL
+  NEGOTIATING
+  AWAITING_PAYMENT_AUTHORIZATION
+  AUTHORIZED
+  IN_PROGRESS
+  UNDER_VERIFICATION
+  CORRECTION_REQUIRED
+  AWAITING_HUMAN_REVIEW
+  ELIGIBLE_FOR_CAPTURE
+  CAPTURE_PENDING
+  CAPTURED
+  VOID_PENDING
+  VOIDED
+  EXPIRED
+  DISPUTED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentState {
+  NONE
+  ORDER_CREATED
+  AWAITING_PAYER_APPROVAL
+  PAYER_APPROVED
+  AUTHORIZED
+  CAPTURE_PENDING
+  CAPTURE_UNCERTAIN
+  CAPTURED
+  VOID_PENDING
+  VOIDED
+  EXPIRED
+  DENIED
+  FAILED
+}
+
+enum VerificationState {
+  NOT_STARTED
+  QUEUED
+  RUNNING
+  PASSED
+  FAILED
+  NEEDS_HUMAN_REVIEW
+  ERROR
+}
+
+model Contract {
+  id                String            @id @default(uuid(7))
+  organizationId    String            @map("organization_id")
+  createdById       String            @map("created_by_id")
+  title             String
+  objective         String
+  category          TaskCategory
+  status            ContractStatus    @default(DRAFT)
+  paymentState      PaymentState      @default(NONE) @map("payment_state")
+  verificationState VerificationState @default(NOT_STARTED) @map("verification_state")
+  currency          String            @default("USD")
+  budgetCents       Int               @map("budget_cents")
+  agreedAmountCents Int?              @map("agreed_amount_cents")
+  deadline          DateTime?
+  buyerAgentId      String?           @map("buyer_agent_id")
+  workerAgentId     String?           @map("worker_agent_id")
+  verifierAgentId   String?           @map("verifier_agent_id")
+  approvedVersionId String?           @unique @map("approved_version_id")
+  approvedHash      String?           @map("approved_hash")
+  correctionCount   Int               @default(0) @map("correction_count")
+  isDemo            Boolean           @default(false) @map("is_demo")
+  failureReason     String?           @map("failure_reason")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy           User                 @relation("ContractCreator", fields: [createdById], references: [id])
+  buyerAgent          Agent?               @relation("ContractBuyerAgent", fields: [buyerAgentId], references: [id])
+  workerAgent         Agent?               @relation("ContractWorkerAgent", fields: [workerAgentId], references: [id])
+  verifierAgent       Agent?               @relation("ContractVerifierAgent", fields: [verifierAgentId], references: [id])
+  approvedVersion     ContractVersion?     @relation("ApprovedVersion", fields: [approvedVersionId], references: [id])
+  versions            ContractVersion[]    @relation("ContractVersions")
+  runs                AgentRun[]
+  messages            AgentMessage[]
+  deliverables        Deliverable[]
+  verificationRuns    VerificationRun[]
+  approvalRequests    ApprovalRequest[]
+  policyDecisions     PolicyDecision[]
+  paypalOrder         PayPalOrder?
+  paymentEvents       PaymentEvent[]
+  financialOperations FinancialOperation[]
+  receipt             Receipt?
+  auditEvents         AuditEvent[]
+  formCaptures        FormCapture[]
+  jobs                Job[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+  @@index([workerAgentId])
+  @@map("contracts")
+}
+
+enum ContractVersionAuthor {
+  AI
+  USER
+  NEGOTIATION
+}
+
+model ContractVersion {
+  id           String                @id @default(uuid(7))
+  contractId   String                @map("contract_id")
+  version      Int
+  content      Json
+  contentHash  String                @map("content_hash")
+  authorType   ContractVersionAuthor @map("author_type")
+  authorId     String?               @map("author_id")
+  approvedAt   DateTime?             @map("approved_at")
+  approvedById String?               @map("approved_by_id")
+  createdAt    DateTime              @default(now()) @map("created_at")
+
+  contract    Contract              @relation("ContractVersions", fields: [contractId], references: [id], onDelete: Cascade)
+  approvedBy  User?                 @relation("ContractVersionApprover", fields: [approvedById], references: [id])
+  approvedFor Contract?             @relation("ApprovedVersion")
+  criteria    AcceptanceCriterion[]
+
+  @@unique([contractId, version])
+  @@map("contract_versions")
+}
+
+enum CriterionKind {
+  OBJECTIVE
+  SUBJECTIVE
+}
+
+enum VerificationMethod {
+  HTTP_AVAILABILITY
+  REQUIRED_SECTIONS
+  NAVIGATION_LINKS
+  RESPONSIVE_VIEWPORTS
+  CONTACT_FORM_SUBMISSION
+  ACCESSIBILITY_AUDIT
+  LIGHTHOUSE_MOBILE_PERFORMANCE
+  CONSOLE_ERRORS
+  BROKEN_LINKS
+  HTML_VALIDITY
+  JSON_SCHEMA
+  DATASET_ROW_COUNT
+  DATASET_UNIQUENESS
+  RUBRIC_REVIEW
+}
+
+model AcceptanceCriterion {
+  id                String             @id @default(uuid(7))
+  contractVersionId String             @map("contract_version_id")
+  key               String
+  description       String
+  kind              CriterionKind
+  method            VerificationMethod
+  parameters        Json
+  required          Boolean            @default(true)
+  position          Int
+
+  contractVersion ContractVersion      @relation(fields: [contractVersionId], references: [id], onDelete: Cascade)
+  results         VerificationResult[]
+
+  @@unique([contractVersionId, key])
+  @@map("acceptance_criteria")
+}
+
+// ---------------------------------------------------------------------------
+// Deliverables, verification, evidence
+// ---------------------------------------------------------------------------
+
+enum DeliverableKind {
+  STATIC_SITE
+  JSON_DATASET
+}
+
+model Deliverable {
+  id               String          @id @default(uuid(7))
+  contractId       String          @map("contract_id")
+  workerAgentId    String          @map("worker_agent_id")
+  runId            String?         @map("run_id")
+  submissionNumber Int             @map("submission_number")
+  kind             DeliverableKind
+  storagePrefix    String          @map("storage_prefix")
+  manifest         Json
+  rootHash         String          @map("root_hash")
+  previewToken     String          @unique @map("preview_token")
+  workerNotes      String?         @map("worker_notes")
+  submittedAt      DateTime        @default(now()) @map("submitted_at")
+
+  contract         Contract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  workerAgent      Agent             @relation(fields: [workerAgentId], references: [id])
+  run              AgentRun?         @relation(fields: [runId], references: [id])
+  verificationRuns VerificationRun[]
+  formCaptures     FormCapture[]
+
+  @@unique([contractId, submissionNumber])
+  @@map("deliverables")
+}
+
+enum VerificationRunStatus {
+  QUEUED
+  RUNNING
+  PASSED
+  FAILED
+  NEEDS_HUMAN_REVIEW
+  ERROR
+}
+
+enum VerificationRecommendation {
+  ACCEPT
+  CORRECT
+  HUMAN_REVIEW
+}
+
+model VerificationRun {
+  id              String                      @id @default(uuid(7))
+  contractId      String                      @map("contract_id")
+  deliverableId   String                      @map("deliverable_id")
+  verifierAgentId String                      @map("verifier_agent_id")
+  agentRunId      String?                     @map("agent_run_id")
+  attempt         Int
+  status          VerificationRunStatus       @default(QUEUED)
+  recommendation  VerificationRecommendation?
+  summary         String?
+  report          Json?
+  startedAt       DateTime?                   @map("started_at")
+  finishedAt      DateTime?                   @map("finished_at")
+  createdAt       DateTime                    @default(now()) @map("created_at")
+
+  contract      Contract             @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  deliverable   Deliverable          @relation(fields: [deliverableId], references: [id])
+  verifierAgent Agent                @relation(fields: [verifierAgentId], references: [id])
+  agentRun      AgentRun?            @relation(fields: [agentRunId], references: [id])
+  results       VerificationResult[]
+  evidence      EvidenceRecord[]
+
+  @@unique([contractId, attempt])
+  @@map("verification_runs")
+}
+
+model VerificationResult {
+  id                String             @id @default(uuid(7))
+  verificationRunId String             @map("verification_run_id")
+  criterionId       String             @map("criterion_id")
+  criterionKey      String             @map("criterion_key")
+  method            VerificationMethod
+  passed            Boolean?
+  score             Float?
+  details           Json
+  checkedAt         DateTime           @default(now()) @map("checked_at")
+
+  verificationRun VerificationRun     @relation(fields: [verificationRunId], references: [id], onDelete: Cascade)
+  criterion       AcceptanceCriterion @relation(fields: [criterionId], references: [id])
+  evidence        EvidenceRecord[]
+
+  @@unique([verificationRunId, criterionKey])
+  @@map("verification_results")
+}
+
+enum EvidenceKind {
+  SCREENSHOT
+  LIGHTHOUSE_REPORT
+  HTTP_TRACE
+  CONSOLE_LOG
+  FORM_SUBMISSION
+  TEST_OUTPUT
+  ARTIFACT_MANIFEST
+  ACCESSIBILITY_REPORT
+  LINK_REPORT
+}
+
+// Evidence records are append-only. A database trigger rejects UPDATE and DELETE.
+model EvidenceRecord {
+  id                String       @id @default(uuid(7))
+  verificationRunId String       @map("verification_run_id")
+  resultId          String?      @map("result_id")
+  kind              EvidenceKind
+  storageKey        String?      @map("storage_key")
+  contentHash       String       @map("content_hash")
+  sizeBytes         Int          @map("size_bytes")
+  mimeType          String       @map("mime_type")
+  label             String
+  metadata          Json?
+  createdAt         DateTime     @default(now()) @map("created_at")
+
+  verificationRun VerificationRun     @relation(fields: [verificationRunId], references: [id])
+  result          VerificationResult? @relation(fields: [resultId], references: [id])
+
+  @@index([verificationRunId])
+  @@map("evidence_records")
+}
+
+// Controlled destination for generated contact forms. Each submission is a real
+// HTTP request made by the verifier's browser against the deliverable's form.
+model FormCapture {
+  id            String   @id @default(uuid(7))
+  contractId    String   @map("contract_id")
+  deliverableId String?  @map("deliverable_id")
+  token         String
+  payload       Json
+  userAgent     String?  @map("user_agent")
+  receivedAt    DateTime @default(now()) @map("received_at")
+
+  contract    Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  deliverable Deliverable? @relation(fields: [deliverableId], references: [id])
+
+  @@index([token, receivedAt])
+  @@map("form_captures")
+}
+
+// ---------------------------------------------------------------------------
+// Policy and approvals
+// ---------------------------------------------------------------------------
+
+enum PolicyAction {
+  APPROVE_CONTRACT
+  START_NEGOTIATION
+  ACCEPT_NEGOTIATED_TERMS
+  CREATE_PAYMENT_ORDER
+  AUTHORIZE_PAYMENT
+  START_WORK
+  SUBMIT_DELIVERABLE
+  RUN_VERIFICATION
+  CAPTURE_PAYMENT
+  VOID_AUTHORIZATION
+}
+
+enum PolicyOutcome {
+  ALLOW
+  DENY
+  REQUIRE_HUMAN_APPROVAL
+}
+
+model PolicyDecision {
+  id             String        @id @default(uuid(7))
+  organizationId String        @map("organization_id")
+  contractId     String?       @map("contract_id")
+  action         PolicyAction
+  outcome        PolicyOutcome
+  rules          Json
+  inputSnapshot  Json          @map("input_snapshot")
+  engineVersion  String        @map("engine_version")
+  decidedAt      DateTime      @default(now()) @map("decided_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contract     Contract?    @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId, decidedAt])
+  @@map("policy_decisions")
+}
+
+enum ApprovalKind {
+  CONTRACT_TERMS
+  PAYMENT_AUTHORIZATION
+  CAPTURE
+  SUBJECTIVE_REVIEW
+  HUMAN_REVIEW
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model ApprovalRequest {
+  id             String         @id @default(uuid(7))
+  organizationId String         @map("organization_id")
+  contractId     String         @map("contract_id")
+  kind           ApprovalKind
+  status         ApprovalStatus @default(PENDING)
+  title          String
+  description    String
+  context        Json?
+  requestedAt    DateTime       @default(now()) @map("requested_at")
+  decidedAt      DateTime?      @map("decided_at")
+  decidedById    String?        @map("decided_by_id")
+  decisionNote   String?        @map("decision_note")
+  expiresAt      DateTime?      @map("expires_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contract     Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  decidedBy    User?        @relation("ApprovalDecider", fields: [decidedById], references: [id])
+
+  @@index([organizationId, status])
+  @@index([contractId])
+  @@map("approval_requests")
+}
+
+// ---------------------------------------------------------------------------
+// PayPal
+// ---------------------------------------------------------------------------
+
+enum PayPalEnvironment {
+  SANDBOX
+  LIVE
+}
+
+model PayPalOrder {
+  id             String            @id @default(uuid(7))
+  contractId     String            @unique @map("contract_id")
+  organizationId String            @map("organization_id")
+  environment    PayPalEnvironment @default(SANDBOX)
+  paypalOrderId  String            @unique @map("paypal_order_id")
+  intent         String            @default("AUTHORIZE")
+  status         String
+  amountCents    Int               @map("amount_cents")
+  currency       String
+  requestId      String            @unique @map("request_id")
+  approveUrl     String?           @map("approve_url")
+  payerId        String?           @map("payer_id")
+  payerEmail     String?           @map("payer_email")
+  createResponse Json              @map("create_response")
+  latestResponse Json?             @map("latest_response")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  contract       Contract              @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  authorizations PayPalAuthorization[]
+  paymentEvents  PaymentEvent[]
+
+  @@index([organizationId])
+  @@map("paypal_orders")
+}
+
+model PayPalAuthorization {
+  id                    String    @id @default(uuid(7))
+  orderId               String    @map("order_id")
+  paypalAuthorizationId String    @unique @map("paypal_authorization_id")
+  status                String
+  amountCents           Int       @map("amount_cents")
+  currency              String
+  expirationTime        DateTime? @map("expiration_time")
+  rawResponse           Json      @map("raw_response")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  order    PayPalOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  captures PayPalCapture[]
+
+  @@index([orderId])
+  @@map("paypal_authorizations")
+}
+
+model PayPalCapture {
+  id              String   @id @default(uuid(7))
+  authorizationId String   @map("authorization_id")
+  paypalCaptureId String   @unique @map("paypal_capture_id")
+  status          String
+  amountCents     Int      @map("amount_cents")
+  currency        String
+  finalCapture    Boolean  @default(true) @map("final_capture")
+  requestId       String   @unique @map("request_id")
+  rawResponse     Json     @map("raw_response")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  authorization PayPalAuthorization @relation(fields: [authorizationId], references: [id], onDelete: Cascade)
+
+  @@map("paypal_captures")
+}
+
+enum PaymentEventSource {
+  API
+  WEBHOOK
+  SYSTEM
+  USER
+}
+
+model PaymentEvent {
+  id         String             @id @default(uuid(7))
+  contractId String             @map("contract_id")
+  orderId    String?            @map("order_id")
+  source     PaymentEventSource
+  kind       String
+  fromState  PaymentState?      @map("from_state")
+  toState    PaymentState?      @map("to_state")
+  payload    Json?
+  createdAt  DateTime           @default(now()) @map("created_at")
+
+  contract Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  order    PayPalOrder? @relation(fields: [orderId], references: [id])
+
+  @@index([contractId, createdAt])
+  @@map("payment_events")
+}
+
+enum FinancialOperationType {
+  CREATE_ORDER
+  AUTHORIZE_ORDER
+  CAPTURE_AUTHORIZATION
+  VOID_AUTHORIZATION
+}
+
+enum FinancialOperationStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  UNCERTAIN
+}
+
+// One row per financial side effect. The unique constraint on
+// (contract, operation) is what makes a second capture attempt impossible,
+// even under concurrent requests.
+model FinancialOperation {
+  id             String                   @id @default(uuid(7))
+  contractId     String                   @map("contract_id")
+  operation      FinancialOperationType
+  idempotencyKey String                   @unique @map("idempotency_key")
+  status         FinancialOperationStatus @default(PENDING)
+  attempts       Int                      @default(0)
+  lastError      String?                  @map("last_error")
+  response       Json?
+  startedAt      DateTime                 @default(now()) @map("started_at")
+  finishedAt     DateTime?                @map("finished_at")
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@unique([contractId, operation])
+  @@map("financial_operations")
+}
+
+enum WebhookProcessingStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+  DUPLICATE
+  REJECTED
+}
+
+model WebhookEvent {
+  id                 String                  @id @default(uuid(7))
+  provider           String                  @default("paypal")
+  eventId            String                  @unique @map("event_id")
+  eventType          String                  @map("event_type")
+  resourceType       String?                 @map("resource_type")
+  resourceId         String?                 @map("resource_id")
+  signatureVerified  Boolean                 @map("signature_verified")
+  verificationStatus String                  @map("verification_status")
+  processingStatus   WebhookProcessingStatus @default(RECEIVED) @map("processing_status")
+  payload            Json
+  error              String?
+  receivedAt         DateTime                @default(now()) @map("received_at")
+  processedAt        DateTime?               @map("processed_at")
+
+  @@index([eventType, receivedAt])
+  @@map("webhook_events")
+}
+
+// ---------------------------------------------------------------------------
+// Receipts and reputation
+// ---------------------------------------------------------------------------
+
+model SigningKey {
+  id           String    @id
+  algorithm    String    @default("Ed25519")
+  publicKeyPem String    @map("public_key_pem")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  retiredAt    DateTime? @map("retired_at")
+
+  receipts Receipt[]
+
+  @@map("signing_keys")
+}
+
+model Receipt {
+  id             String   @id @default(uuid(7))
+  receiptNumber  String   @unique @map("receipt_number")
+  contractId     String   @unique @map("contract_id")
+  organizationId String   @map("organization_id")
+  workerAgentId  String   @map("worker_agent_id")
+  version        String
+  payload        Json
+  payloadHash    String   @map("payload_hash")
+  signature      String
+  signingKeyId   String   @map("signing_key_id")
+  captureRef     String   @map("capture_ref")
+  settledAt      DateTime @map("settled_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  contract     Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workerAgent  Agent        @relation("ReceiptWorker", fields: [workerAgentId], references: [id])
+  signingKey   SigningKey   @relation(fields: [signingKeyId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@map("receipts")
+}
+
+enum PassportTier {
+  NEW
+  ESTABLISHED
+  TRUSTED
+}
+
+model TrustPassport {
+  id                       String       @id @default(uuid(7))
+  agentId                  String       @unique @map("agent_id")
+  tier                     PassportTier @default(NEW)
+  verifiedTaskCount        Int          @default(0) @map("verified_task_count")
+  successfulDeliveryCount  Int          @default(0) @map("successful_delivery_count")
+  correctionCount          Int          @default(0) @map("correction_count")
+  failedVerificationCount  Int          @default(0) @map("failed_verification_count")
+  completedValueByCurrency Json         @default("{}") @map("completed_value_by_currency")
+  categories               Json         @default("{}")
+  verificationMethods      Json         @default("[]") @map("verification_methods")
+  receiptNumbers           String[]     @default([]) @map("receipt_numbers")
+  firstVerifiedAt          DateTime?    @map("first_verified_at")
+  lastVerifiedAt           DateTime?    @map("last_verified_at")
+  computedAt               DateTime     @default(now()) @map("computed_at")
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@map("trust_passports")
+}
+
+// ---------------------------------------------------------------------------
+// Audit, jobs, integrations, rate limits
+// ---------------------------------------------------------------------------
+
+enum ActorType {
+  USER
+  AGENT
+  SYSTEM
+  WEBHOOK
+}
+
+enum AuditSeverity {
+  INFO
+  NOTICE
+  WARNING
+  CRITICAL
+}
+
+model AuditEvent {
+  id             String        @id @default(uuid(7))
+  organizationId String?       @map("organization_id")
+  contractId     String?       @map("contract_id")
+  actorType      ActorType     @map("actor_type")
+  actorId        String?       @map("actor_id")
+  actorLabel     String?       @map("actor_label")
+  action         String
+  entityType     String?       @map("entity_type")
+  entityId       String?       @map("entity_id")
+  title          String
+  description    String?
+  severity       AuditSeverity @default(INFO)
+  metadata       Json?
+  ipAddress      String?       @map("ip_address")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contract     Contract?     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([contractId, createdAt])
+  @@map("audit_events")
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  DEAD
+}
+
+model Job {
+  id          String    @id @default(uuid(7))
+  type        String
+  payload     Json
+  status      JobStatus @default(QUEUED)
+  runAt       DateTime  @default(now()) @map("run_at")
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3) @map("max_attempts")
+  lockedAt    DateTime? @map("locked_at")
+  lockedBy    String?   @map("locked_by")
+  lastError   String?   @map("last_error")
+  dedupeKey   String?   @unique @map("dedupe_key")
+  contractId  String?   @map("contract_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  finishedAt  DateTime? @map("finished_at")
+
+  contract Contract? @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([status, runAt])
+  @@index([contractId])
+  @@map("jobs")
+}
+
+model IntegrationSetting {
+  id             String   @id @default(uuid(7))
+  organizationId String   @map("organization_id")
+  provider       String
+  config         Json
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider])
+  @@map("integration_settings")
+}
+
+model RateLimitBucket {
+  key     String   @id
+  count   Int      @default(0)
+  resetAt DateTime @map("reset_at")
+
+  @@map("rate_limit_buckets")
+}

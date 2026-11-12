@@ -1,0 +1,78 @@
+{
+  "info": {
+    "name": "PACT Protocol",
+    "description": "Proof-based Autonomous Commerce and Transactions. Set the `baseUrl` and `apiKey` variables. Endpoints that need a session cookie (register, login) are included for completeness; most calls work with an API key created in Settings.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "apiKey", "value": "pact_replace_me" },
+    { "key": "contractId", "value": "" },
+    { "key": "receiptNumber", "value": "" }
+  ],
+  "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{apiKey}}", "type": "string" }] },
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{baseUrl}}/api/health", "auth": { "type": "noauth" } } },
+        { "name": "Dashboard", "request": { "method": "GET", "url": "{{baseUrl}}/api/dashboard" } },
+        { "name": "Activity", "request": { "method": "GET", "url": "{{baseUrl}}/api/activity?limit=50" } }
+      ]
+    },
+    {
+      "name": "Auth (session)",
+      "item": [
+        { "name": "Register", "request": { "method": "POST", "url": "{{baseUrl}}/api/auth/register", "auth": { "type": "noauth" }, "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Origin", "value": "{{baseUrl}}" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"owner@example.com\",\n  \"name\": \"Owner\",\n  \"password\": \"CorrectHorse42Battery\",\n  \"organizationName\": \"Acme Studio\"\n}" } } },
+        { "name": "Login", "request": { "method": "POST", "url": "{{baseUrl}}/api/auth/login", "auth": { "type": "noauth" }, "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Origin", "value": "{{baseUrl}}" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"owner@example.com\",\n  \"password\": \"CorrectHorse42Battery\"\n}" } } },
+        { "name": "Me", "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/me" } }
+      ]
+    },
+    {
+      "name": "Workspace",
+      "item": [
+        { "name": "Get policy", "request": { "method": "GET", "url": "{{baseUrl}}/api/organizations/current/policy" } },
+        { "name": "Update policy", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/organizations/current/policy", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"maxTransactionAmountCents\": 10000,\n  \"requireHumanApprovalForCapture\": false\n}" } } },
+        { "name": "Members", "request": { "method": "GET", "url": "{{baseUrl}}/api/organizations/current/members" } },
+        { "name": "Integration status", "request": { "method": "GET", "url": "{{baseUrl}}/api/integrations/status" } }
+      ]
+    },
+    {
+      "name": "Contracts",
+      "item": [
+        { "name": "List contracts", "request": { "method": "GET", "url": "{{baseUrl}}/api/contracts" } },
+        {
+          "name": "Create contract (needs Gemini)",
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.contract) pm.collectionVariables.set('contractId', body.contract.id);"], "type": "text/javascript" } }],
+          "request": { "method": "POST", "url": "{{baseUrl}}/api/contracts", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"objective\": \"Create a responsive landing page for Harbor Analytics. It must include a hero section, features, pricing, and a working contact form. It must pass accessibility checks and achieve a mobile Lighthouse performance score of at least 90.\",\n  \"budgetCents\": 6000,\n  \"currency\": \"USD\",\n  \"category\": \"LANDING_PAGE\"\n}" } }
+        },
+        { "name": "Get contract", "request": { "method": "GET", "url": "{{baseUrl}}/api/contracts/{{contractId}}" } },
+        { "name": "Approve contract", "request": { "method": "POST", "url": "{{baseUrl}}/api/contracts/{{contractId}}/actions", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"action\": \"approve\" }" } } },
+        { "name": "Create PayPal order (returns approveUrl)", "request": { "method": "POST", "url": "{{baseUrl}}/api/contracts/{{contractId}}/actions", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"action\": \"create_payment_order\" }" } } },
+        { "name": "Capture (policy decides)", "request": { "method": "POST", "url": "{{baseUrl}}/api/contracts/{{contractId}}/actions", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"action\": \"capture\" }" } } },
+        { "name": "Void authorization", "request": { "method": "POST", "url": "{{baseUrl}}/api/contracts/{{contractId}}/actions", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"action\": \"void\", \"reason\": \"Cancelled by owner\" }" } } },
+        { "name": "Reconcile with PayPal", "request": { "method": "POST", "url": "{{baseUrl}}/api/contracts/{{contractId}}/actions", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"action\": \"reconcile\" }" } } }
+      ]
+    },
+    {
+      "name": "Approvals, agents, payments",
+      "item": [
+        { "name": "Pending approvals", "request": { "method": "GET", "url": "{{baseUrl}}/api/approvals?status=PENDING" } },
+        { "name": "Decide approval", "request": { "method": "POST", "url": "{{baseUrl}}/api/approvals", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"approvalId\": \"replace-with-id\",\n  \"decision\": \"APPROVED\",\n  \"note\": \"Looks good\"\n}" } } },
+        { "name": "Agents", "request": { "method": "GET", "url": "{{baseUrl}}/api/agents" } },
+        { "name": "Agent detail", "request": { "method": "GET", "url": "{{baseUrl}}/api/agents/atlas-web-worker" } },
+        { "name": "Payments", "request": { "method": "GET", "url": "{{baseUrl}}/api/payments" } }
+      ]
+    },
+    {
+      "name": "Receipts",
+      "item": [
+        { "name": "List receipts", "request": { "method": "GET", "url": "{{baseUrl}}/api/receipts" } },
+        { "name": "Get receipt (JSON)", "request": { "method": "GET", "url": "{{baseUrl}}/api/receipts/{{receiptNumber}}" } },
+        { "name": "Get receipt (PDF)", "request": { "method": "GET", "url": "{{baseUrl}}/api/receipts/{{receiptNumber}}?format=pdf" } },
+        { "name": "Signing keys", "request": { "method": "GET", "url": "{{baseUrl}}/api/receipts/verify", "auth": { "type": "noauth" } } },
+        { "name": "Verify receipt", "request": { "method": "POST", "url": "{{baseUrl}}/api/receipts/verify", "auth": { "type": "noauth" }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"payload\": {},\n  \"signature\": \"paste\",\n  \"signingKeyId\": \"paste\"\n}" } } }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,558 @@
+openapi: 3.1.0
+info:
+  title: PACT Protocol API
+  version: 0.1.0
+  description: |
+    Proof-based Autonomous Commerce and Transactions. Agents hire agents, independent verification checks the work, and a deterministic policy engine governs PayPal settlement.
+    All amounts are integer minor units with an ISO 4217 currency code. Errors use `{ error: { code, message, details } }`.
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:3000
+    description: Local development
+security:
+  - sessionCookie: []
+  - apiKey: []
+tags:
+  - name: Auth
+  - name: Workspaces
+  - name: Contracts
+  - name: Payments
+  - name: Approvals
+  - name: Agents
+  - name: Receipts
+  - name: Evidence
+  - name: System
+paths:
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Create an account and optionally a workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, name, password]
+              properties:
+                email: { type: string, format: email }
+                name: { type: string }
+                password: { type: string, minLength: 12 }
+                organizationName: { type: string }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/RegisterResponse" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Sign in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200": { description: Signed in; sets the pact_session cookie }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the current session
+      responses:
+        "200": { description: Signed out }
+  /api/auth/verify-email:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Confirm an email verification token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [token], properties: { token: { type: string } } }
+      responses:
+        "200": { description: Verified }
+        "400": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [Auth]
+      summary: Resend the verification email for the signed-in user
+      responses:
+        "200": { description: Sent or written to the log when email is not configured }
+  /api/auth/password:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Request a password reset link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [email], properties: { email: { type: string, format: email } } }
+      responses:
+        "200": { description: Always 200; does not reveal whether the account exists }
+    put:
+      tags: [Auth]
+      security: []
+      summary: Complete a password reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [token, password], properties: { token: { type: string }, password: { type: string, minLength: 12 } } }
+      responses:
+        "200": { description: Password updated; all sessions revoked }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Current user, active workspace, memberships
+      responses:
+        "200": { description: OK }
+  /api/organizations:
+    get:
+      tags: [Workspaces]
+      summary: List the caller's workspaces
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [Workspaces]
+      summary: Create a workspace (caller becomes owner)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [name], properties: { name: { type: string } } }
+      responses:
+        "201": { description: Created }
+  /api/organizations/switch:
+    post:
+      tags: [Workspaces]
+      summary: Set the active workspace for the session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [organizationId], properties: { organizationId: { type: string, format: uuid } } }
+      responses:
+        "200": { description: OK }
+  /api/organizations/current/policy:
+    get:
+      tags: [Workspaces]
+      summary: Read the spending policy
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { policy: { $ref: "#/components/schemas/SpendingPolicy" } } } } } }
+    patch:
+      tags: [Workspaces]
+      summary: Update spending policy fields (admin)
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SpendingPolicyPatch" }
+      responses:
+        "200": { description: OK }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/organizations/current/members:
+    get:
+      tags: [Workspaces]
+      summary: List members and pending invitations
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [Workspaces]
+      summary: Invite a member (admin)
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [email, role], properties: { email: { type: string, format: email }, role: { type: string, enum: [ADMIN, MEMBER, VIEWER] } } }
+      responses:
+        "201": { description: Created }
+    patch:
+      tags: [Workspaces]
+      summary: Change a member's role (owner)
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [userId, role], properties: { userId: { type: string }, role: { type: string, enum: [OWNER, ADMIN, MEMBER, VIEWER] } } }
+      responses:
+        "200": { description: OK }
+    delete:
+      tags: [Workspaces]
+      summary: Remove a member (owner)
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [userId], properties: { userId: { type: string } } }
+      responses:
+        "200": { description: OK }
+  /api/organizations/current/api-keys:
+    get:
+      tags: [Workspaces]
+      summary: List API keys (admin)
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [Workspaces]
+      summary: Create an API key; the secret is returned once (admin)
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [name, scopes], properties: { name: { type: string }, scopes: { type: array, items: { type: string, enum: [read, write] } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { type: object, properties: { key: { type: object }, secret: { type: string } } } } } }
+    delete:
+      tags: [Workspaces]
+      summary: Revoke an API key (admin)
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [id], properties: { id: { type: string } } }
+      responses:
+        "200": { description: OK }
+  /api/invitations/{token}:
+    post:
+      tags: [Workspaces]
+      summary: Accept an invitation
+      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Joined }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/contracts:
+    get:
+      tags: [Contracts]
+      summary: List contracts
+      parameters: [{ name: status, in: query, schema: { $ref: "#/components/schemas/ContractStatus" } }]
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [Contracts]
+      summary: Create a contract from a natural-language objective (requires Gemini)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateContract" }
+      responses:
+        "201": { description: Created with the generated version }
+        "422": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/contracts/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [Contracts]
+      summary: Full contract detail
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { contract: { $ref: "#/components/schemas/Contract" }, scenario: { type: string } } } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [Contracts]
+      summary: Save an edited version (unapproved contracts only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContractContent" }
+      responses:
+        "200": { description: New version }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/contracts/{id}/actions:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    post:
+      tags: [Contracts]
+      summary: Lifecycle action, checked by the policy engine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [approve, cancel, retry_negotiation, create_payment_order, capture, void, reconcile, rerun_verification, retry_work] }
+                reason: { type: string }
+      responses:
+        "200": { description: Action result; create_payment_order returns approveUrl; capture returns outcome }
+        "409": { description: Policy denied or invalid state, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorBody" } } } }
+        "502": { $ref: "#/components/responses/Error" }
+  /api/contracts/{id}/stream:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }, { name: since, in: query, schema: { type: string } }]
+    get:
+      tags: [Contracts]
+      summary: Server-Sent Events for one contract (events ready, activity, contract)
+      responses:
+        "200": { description: text/event-stream }
+  /api/activity:
+    get:
+      tags: [System]
+      summary: Audit events; ?stream=1 for SSE
+      parameters: [{ name: stream, in: query, schema: { type: string } }, { name: limit, in: query, schema: { type: integer } }, { name: contractId, in: query, schema: { type: string } }]
+      responses:
+        "200": { description: OK }
+  /api/dashboard:
+    get:
+      tags: [System]
+      summary: Workspace aggregates computed from records
+      responses:
+        "200": { description: OK }
+  /api/payments:
+    get:
+      tags: [Payments]
+      summary: Orders, authorizations, captures, and recent webhook events
+      responses:
+        "200": { description: OK }
+  /api/payments/paypal/return:
+    get:
+      tags: [Payments]
+      summary: PayPal return URL; authorizes the approved order server-side and redirects
+      parameters: [{ name: contract, in: query, required: true, schema: { type: string } }, { name: token, in: query, required: true, schema: { type: string } }]
+      responses:
+        "302": { description: Redirect to the contract page }
+  /api/webhooks/paypal:
+    post:
+      tags: [Payments]
+      security: []
+      summary: PayPal webhook receiver (signature verified via PayPal; deduplicated by event id)
+      responses:
+        "200": { description: Received }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/approvals:
+    get:
+      tags: [Approvals]
+      summary: List approval requests
+      parameters: [{ name: status, in: query, schema: { type: string, enum: [PENDING, APPROVED, REJECTED, EXPIRED, all] } }]
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [Approvals]
+      summary: Decide an approval request (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [approvalId, decision], properties: { approvalId: { type: string }, decision: { type: string, enum: [APPROVED, REJECTED] }, note: { type: string } } }
+      responses:
+        "200": { description: Decision recorded; capture result included when applicable }
+  /api/agents:
+    get:
+      tags: [Agents]
+      summary: Agent directory
+      responses:
+        "200": { description: OK }
+  /api/agents/{slug}:
+    get:
+      tags: [Agents]
+      summary: Agent detail with Trust Passport
+      parameters: [{ name: slug, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/receipts:
+    get:
+      tags: [Receipts]
+      summary: List receipts
+      responses:
+        "200": { description: OK }
+  /api/receipts/{number}:
+    get:
+      tags: [Receipts]
+      summary: Signed receipt
+      parameters: [{ name: number, in: path, required: true, schema: { type: string } }, { name: format, in: query, schema: { type: string, enum: [json, download, pdf] } }]
+      responses:
+        "200": { description: Receipt JSON or PDF, content: { application/json: { schema: { $ref: "#/components/schemas/SignedReceipt" } } } }
+  /api/receipts/verify:
+    get:
+      tags: [Receipts]
+      security: []
+      summary: Published signing keys
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [Receipts]
+      security: []
+      summary: Verify a receipt's signature, hash, evidence references, and payment record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [payload, signature, signingKeyId], properties: { payload: { type: object }, signature: { type: string }, signingKeyId: { type: string } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { verification: { $ref: "#/components/schemas/ReceiptVerification" } } } } } }
+  /api/evidence/{id}:
+    get:
+      tags: [Evidence]
+      summary: Evidence file; the stored hash is re-checked before serving
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }, { name: download, in: query, schema: { type: string } }]
+      responses:
+        "200": { description: File }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/integrations/status:
+    get:
+      tags: [System]
+      summary: Configured integrations (no secrets)
+      responses:
+        "200": { description: OK }
+  /api/health:
+    get:
+      tags: [System]
+      security: []
+      summary: Liveness, database, queue depth, worker last seen, integrations
+      responses:
+        "200": { description: OK }
+        "503": { description: Degraded }
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: pact_session
+    apiKey:
+      type: http
+      scheme: bearer
+      bearerFormat: pact_...
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+  schemas:
+    ErrorBody:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, enum: [bad_request, unauthorized, email_unverified, forbidden, not_found, conflict, policy_denied, human_approval_required, duplicate_capture, validation_failed, rate_limited, paypal_error, paypal_uncertain, gemini_not_configured, paypal_not_configured, internal_error] }
+            message: { type: string }
+            details: {}
+    RegisterResponse:
+      type: object
+      properties:
+        user: { type: object }
+        emailDelivery: { type: string, enum: [sent, not_configured] }
+    ContractStatus:
+      type: string
+      enum: [DRAFT, AWAITING_APPROVAL, NEGOTIATING, AWAITING_PAYMENT_AUTHORIZATION, AUTHORIZED, IN_PROGRESS, UNDER_VERIFICATION, CORRECTION_REQUIRED, AWAITING_HUMAN_REVIEW, ELIGIBLE_FOR_CAPTURE, CAPTURE_PENDING, CAPTURED, VOID_PENDING, VOIDED, EXPIRED, DISPUTED, FAILED, CANCELLED]
+    PaymentState:
+      type: string
+      enum: [NONE, ORDER_CREATED, AWAITING_PAYER_APPROVAL, PAYER_APPROVED, AUTHORIZED, CAPTURE_PENDING, CAPTURE_UNCERTAIN, CAPTURED, VOID_PENDING, VOIDED, EXPIRED, DENIED, FAILED]
+    VerificationState:
+      type: string
+      enum: [NOT_STARTED, QUEUED, RUNNING, PASSED, FAILED, NEEDS_HUMAN_REVIEW, ERROR]
+    CreateContract:
+      type: object
+      required: [objective, budgetCents, category]
+      properties:
+        objective: { type: string, minLength: 20, maxLength: 4000 }
+        budgetCents: { type: integer, minimum: 100 }
+        currency: { type: string, default: USD }
+        category: { type: string, enum: [LANDING_PAGE, JSON_DATASET] }
+        deadline: { type: string, format: date-time, nullable: true }
+        scenario: { type: string, enum: [BEST_EFFORT, DEFECTIVE_FIRST_DRAFT], description: Judge demo workspace only }
+    Criterion:
+      type: object
+      required: [key, description, kind, method, parameters, required]
+      properties:
+        key: { type: string, pattern: "^[a-z0-9_]{3,48}$" }
+        description: { type: string }
+        kind: { type: string, enum: [OBJECTIVE, SUBJECTIVE] }
+        method: { type: string, enum: [HTTP_AVAILABILITY, REQUIRED_SECTIONS, NAVIGATION_LINKS, RESPONSIVE_VIEWPORTS, CONTACT_FORM_SUBMISSION, ACCESSIBILITY_AUDIT, LIGHTHOUSE_MOBILE_PERFORMANCE, CONSOLE_ERRORS, BROKEN_LINKS, HTML_VALIDITY, JSON_SCHEMA, DATASET_ROW_COUNT, DATASET_UNIQUENESS, RUBRIC_REVIEW] }
+        parameters: { type: object }
+        required: { type: boolean }
+    ContractContent:
+      type: object
+      required: [title, category, taskDescription, deliverables, budgetCents, currency, deadline, criteria, evidenceRequirements, paymentRules, approvalRequirements, disputeProcedure]
+      properties:
+        title: { type: string }
+        category: { type: string, enum: [LANDING_PAGE, JSON_DATASET] }
+        taskDescription: { type: string }
+        deliverables: { type: array, items: { type: string } }
+        budgetCents: { type: integer }
+        currency: { type: string }
+        deadline: { type: string, nullable: true }
+        criteria: { type: array, items: { $ref: "#/components/schemas/Criterion" } }
+        evidenceRequirements: { type: array, items: { type: string } }
+        paymentRules:
+          type: object
+          properties:
+            authorizationIntent: { type: string, enum: [AUTHORIZE] }
+            captureCondition: { type: string }
+            requiresHumanApprovalForCapture: { type: boolean }
+        approvalRequirements: { type: array, items: { type: string } }
+        disputeProcedure: { type: string }
+    Contract:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        status: { $ref: "#/components/schemas/ContractStatus" }
+        paymentState: { $ref: "#/components/schemas/PaymentState" }
+        verificationState: { $ref: "#/components/schemas/VerificationState" }
+        currency: { type: string }
+        budgetCents: { type: integer }
+        agreedAmountCents: { type: integer, nullable: true }
+        approvedHash: { type: string, nullable: true }
+        versions: { type: array, items: { type: object } }
+        verificationRuns: { type: array, items: { type: object } }
+        policyDecisions: { type: array, items: { type: object } }
+        paypalOrder: { type: object, nullable: true }
+        receipt: { type: object, nullable: true }
+    SpendingPolicy:
+      type: object
+      properties:
+        currency: { type: string }
+        maxTransactionAmountCents: { type: integer }
+        monthlyBudgetCents: { type: integer }
+        perAgentLimitCents: { type: integer }
+        coldStartAgentLimitCents: { type: integer }
+        requireHumanApprovalForCapture: { type: boolean }
+        humanApprovalAboveCents: { type: integer, nullable: true }
+        subjectiveCriteriaRequireHuman: { type: boolean }
+        maxNegotiationRounds: { type: integer }
+        maxCorrectionAttempts: { type: integer }
+        allowedCategories: { type: array, items: { type: string } }
+        captureRateLimitPerHour: { type: integer }
+    SpendingPolicyPatch:
+      allOf: [{ $ref: "#/components/schemas/SpendingPolicy" }]
+    SignedReceipt:
+      type: object
+      properties:
+        receipt:
+          type: object
+          properties:
+            payload: { type: object }
+            payloadHash: { type: string }
+            signature: { type: string }
+            signingKeyId: { type: string }
+            algorithm: { type: string, enum: [Ed25519] }
+            publicKeyPem: { type: string }
+    ReceiptVerification:
+      type: object
+      properties:
+        receiptNumber: { type: string, nullable: true }
+        valid: { type: boolean }
+        checks:
+          type: object
+          properties:
+            structure: { type: object }
+            hash: { type: object }
+            signature: { type: object }
+            evidence: { type: object }
+            paymentRecord: { type: object }
+        meaning:
+          type: object
+          properties:
+            cryptographicIntegrity: { type: boolean }
+            independentTechnicalVerification: { type: string }
+            buyerApproval: { type: string }
+            paymentConfirmation: { type: string }

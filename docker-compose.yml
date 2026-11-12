@@ -1,0 +1,79 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: pact
+      POSTGRES_PASSWORD: pact
+      POSTGRES_DB: pact
+    ports:
+      - "5432:5432"
+    volumes:
+      - pact-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pact"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: pactminio
+      MINIO_ROOT_PASSWORD: pactminio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - pact-minio:/data
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 pactminio pactminio123; do sleep 1; done;
+      mc mb --ignore-existing local/pact;
+      exit 0"
+
+  web:
+    build: .
+    env_file: .env
+    environment:
+      PROCESS: web
+      DATABASE_URL: postgresql://pact:pact@db:5432/pact
+      APP_URL: http://localhost:3000
+      STORAGE_DRIVER: s3
+      S3_BUCKET: pact
+      S3_REGION: us-east-1
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY_ID: pactminio
+      S3_SECRET_ACCESS_KEY: pactminio123
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  worker:
+    build: .
+    env_file: .env
+    environment:
+      PROCESS: worker
+      DATABASE_URL: postgresql://pact:pact@db:5432/pact
+      APP_URL: http://web:3000
+      STORAGE_DRIVER: s3
+      S3_BUCKET: pact
+      S3_REGION: us-east-1
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY_ID: pactminio
+      S3_SECRET_ACCESS_KEY: pactminio123
+    depends_on:
+      - web
+
+volumes:
+  pact-db:
+  pact-minio:
